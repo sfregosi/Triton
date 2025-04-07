@@ -50,7 +50,7 @@ if strcmp(wavType,'wav')
     end
 elseif strcmp(wavType, 'flac')
     PARAMS.ftype = 3;
-    % pull relevent info that would come vrom rdwavhd
+    % pull relevent info that would come from rdwavhd
     info = audioinfo([PARAMS.inpath PARAMS.infile]);
     PARAMS.nch = info.NumChannels;         % Number of Channels
     PARAMS.fs = info.SampleRate;          % Sampling Rate(samples/second)
