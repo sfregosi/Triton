@@ -144,8 +144,8 @@ parfor i = 1:length(allDays)
                 localParams.ltsahd.day(thisxwavIdx), ...
                 localParams.ltsahd.hour(thisxwavIdx), ...
                 localParams.ltsahd.minute(thisxwavIdx), ...
-                localParams.ltsahd.secs(thisxwavIdx) ...
-                ) + seconds(localParams.ltsahd.byte_length(thisxwavIdx) / ((localParams.ltsa.nBits/8) * localParams.ltsahd.sample_rate(thisxwavIdx))) ...
+                localParams.ltsahd.secs(thisxwavIdx) + localParams.ltsahd.ticks(thisxwavIdx)/1000 ...
+                ) + seconds((localParams.ltsahd.byte_length(thisxwavIdx)-2) / ((localParams.ltsa.nBits/8) * localParams.ltsahd.sample_rate(thisxwavIdx))) ...
                 );
 
 
@@ -197,8 +197,8 @@ parfor i = 1:length(allDays)
                     localParams.ltsahd.day(thisxwavIdx), ...
                     localParams.ltsahd.hour(thisxwavIdx), ...
                     localParams.ltsahd.minute(thisxwavIdx), ...
-                    localParams.ltsahd.secs(thisxwavIdx) ...
-                    ) + seconds(localParams.ltsahd.byte_length(thisxwavIdx) / ((localParams.ltsa.nBits/8) * localParams.ltsahd.sample_rate(thisxwavIdx))) ...
+                    localParams.ltsahd.secs(thisxwavIdx) + localParams.ltsahd.ticks(thisxwavIdx)/1000 ...
+                    ) + seconds((localParams.ltsahd.byte_length(thisxwavIdx)-2) / ((localParams.ltsa.nBits/8) * localParams.ltsahd.sample_rate(thisxwavIdx))) ...
                     );
 
 
@@ -405,7 +405,7 @@ parfor i = 1:length(allDays)
     netcdf.putAtt(ncid, globalID, 'project', char(localParams.metadata.project));
     netcdf.putAtt(ncid, globalID, 'site', char(localParams.metadata.site));
     netcdf.putAtt(ncid, globalID, 'deployment', localParams.metadata.deployment);
-    pointStr = sprintf('POINT(%0.6f %0.6f)', localParams.metadata.longitude, localParams.metadata.latitude);
+    pointStr = sprintf('POINT(%0.6f %0.6f)', localParams.metadata.latitude, localParams.metadata.longitude);
     netcdf.putAtt(ncid, globalID, 'geospatial_bounds', pointStr);    netcdf.putAtt(ncid, globalID, 'id', char(localParams.metadata.id));
     netcdf.putAtt(ncid, globalID, 'sample_rate', localParams.ltsa.fs);
     netcdf.putAtt(ncid, globalID, 'nfft', localParams.ltsa.nfft);
@@ -446,8 +446,16 @@ parfor i = 1:length(allDays)
     netcdf.putAtt(ncid, effortVarID, 'units', 'percent');
 
     % xwav file associated with measurement
-    % xwavFileVarID = netcdf.defVar(ncid, 'xwavFile', 'NC_CHAR', xwavFileDimID);
-    xwavFileVarID = netcdf.defVar(ncid, 'xwavFile', 'NC_STRING', dimNumFilesID);
+    % NC_STRING isn't supported on all MATLAB/netcdf-c releases (e.g. older
+    % MATLAB like 2016) -- skip this variable entirely on those rather than
+    % erroring out.
+    writeXwavFileVar = true;
+    try
+        xwavFileVarID = netcdf.defVar(ncid, 'xwavFile', 'NC_STRING', dimNumFilesID);
+    catch
+        writeXwavFileVar = false;
+        warning('NC_STRING is not supported by this MATLAB/netcdf-c release -- skipping the xwavFile variable.');
+    end
 
     % End Define Mode
     netcdf.endDef(ncid);
@@ -462,7 +470,9 @@ parfor i = 1:length(allDays)
     netcdf.putVar(ncid, freqVarID, double(freqTable(:, 2)));
     netcdf.putVar(ncid, psdVarID, double(bandsOut'));
     netcdf.putVar(ncid, effortVarID, double(minPrct_vec(:)));
-    netcdf.putVar(ncid, xwavFileVarID, xwav_file);
+    if writeXwavFileVar
+        netcdf.putVar(ncid, xwavFileVarID, xwav_file);
+    end
     netcdf.close(ncid);
     disp(['Saved NetCDF: ', fullfile(localParams.metadata.outputDir, outName)]);
 
